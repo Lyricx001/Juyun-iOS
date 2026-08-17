@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="40" x2="900" y2="980" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#172A63"/>
+      <stop offset="0.52" stop-color="#0B1430"/>
+      <stop offset="1" stop-color="#070B14"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(710 286) rotate(131) scale(564)">
+      <stop stop-color="#6E8BFF" stop-opacity="0.48"/>
+      <stop offset="1" stop-color="#6E8BFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cloud" x1="326" y1="345" x2="720" y2="706" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#BFD0FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+  <circle cx="512" cy="512" r="360" fill="none" stroke="#91A7FF" stroke-opacity="0.12" stroke-width="4"/>
+  <circle cx="512" cy="512" r="286" fill="none" stroke="#91A7FF" stroke-opacity="0.11" stroke-width="3"/>
+
+  <g stroke="#89A2FF" stroke-opacity="0.45" stroke-width="8" stroke-linecap="round">
+    <path d="M512 216V322"/>
+    <path d="M760 354L676 402"/>
+    <path d="M760 670L676 622"/>
+    <path d="M512 808V702"/>
+    <path d="M264 670L348 622"/>
+    <path d="M264 354L348 402"/>
+  </g>
+
+  <path d="M371 718C290 718 232 662 232 586C232 519 278 468 343 456C369 373 443 317 533 317C637 317 722 394 735 494C772 515 796 554 796 599C796 665 746 718 679 718H371Z" fill="#000718" opacity="0.38"/>
+  <g>
+    <path d="M371 693C290 693 232 637 232 561C232 494 278 443 343 431C369 348 443 292 533 292C637 292 722 369 735 469C772 490 796 529 796 574C796 640 746 693 679 693H371Z" fill="url(#cloud)"/>
+    <path d="M382 607L474 515L548 587L640 465" fill="none" stroke="#5579FF" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <g stroke="#FFFFFF" stroke-width="12">
+    <circle cx="512" cy="216" r="31" fill="#6E8BFF"/>
+    <circle cx="760" cy="354" r="31" fill="#FFB51B"/>
+    <circle cx="760" cy="670" r="31" fill="#6B5CFF"/>
+    <circle cx="512" cy="808" r="31" fill="#37D09A"/>
+    <circle cx="264" cy="670" r="31" fill="#2D8CFF"/>
+    <circle cx="264" cy="354" r="31" fill="#2278F2"/>
+  </g>
+</svg>
