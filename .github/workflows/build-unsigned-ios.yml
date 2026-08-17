@@ -1,0 +1,141 @@
+name: 生成聚云自签 IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: juyun-unsigned-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build unsigned iOS IPA
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      CI: "1"
+      EXPO_NO_TELEMETRY: "1"
+      RCT_NO_LAUNCH_PACKAGER: "1"
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+
+      - name: Check build environment
+        run: |
+          set -euo pipefail
+          node --version
+          npm --version
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          pod --version
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Run project checks
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Generate the native iOS project
+        run: npx expo prebuild --platform ios --clean --no-install
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: pod install --repo-update
+
+      - name: Build without an Apple signature
+        run: |
+          set -euo pipefail
+
+          workspace="ios/app.xcworkspace"
+          if [[ ! -d "$workspace" ]]; then
+            echo "Expected Xcode workspace was not generated: $workspace" >&2
+            exit 1
+          fi
+
+          xcodebuild \
+            -workspace "$workspace" \
+            -scheme app \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/JuyunDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            clean build
+
+      - name: Package and validate the unsigned IPA
+        run: |
+          set -euo pipefail
+
+          app_path="$RUNNER_TEMP/JuyunDerivedData/Build/Products/Release-iphoneos/app.app"
+          executable="$app_path/app"
+          package_root="$RUNNER_TEMP/JuyunUnsignedPackage"
+          ipa_path="$GITHUB_WORKSPACE/Juyun-unsigned.ipa"
+
+          if [[ ! -d "$app_path" ]]; then
+            echo "Release app was not produced at $app_path" >&2
+            exit 1
+          fi
+          if [[ ! -f "$executable" ]]; then
+            echo "The iOS executable is missing" >&2
+            exit 1
+          fi
+          if [[ ! -f "$app_path/main.jsbundle" ]]; then
+            echo "The production JavaScript bundle is missing" >&2
+            exit 1
+          fi
+          if [[ -e "$app_path/embedded.mobileprovision" ]]; then
+            echo "The build unexpectedly contains a provisioning profile" >&2
+            exit 1
+          fi
+          if ! file "$executable" | grep -q 'arm64'; then
+            echo "The build does not contain an arm64 device executable" >&2
+            file "$executable" >&2
+            exit 1
+          fi
+
+          mkdir -p "$package_root/Payload"
+          ditto "$app_path" "$package_root/Payload/Juyun.app"
+          (
+            cd "$package_root"
+            /usr/bin/zip -qry Juyun-unsigned.ipa Payload
+          )
+          mv "$package_root/Juyun-unsigned.ipa" "$ipa_path"
+
+          /usr/bin/unzip -t "$ipa_path"
+          bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_path/Info.plist")
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_path/Info.plist")
+          build=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app_path/Info.plist")
+
+          if [[ "$bundle_id" != "com.lyricx001.juyun" ]]; then
+            echo "Unexpected bundle identifier: $bundle_id" >&2
+            exit 1
+          fi
+
+          shasum -a 256 "$ipa_path" > "$GITHUB_WORKSPACE/Juyun-unsigned.ipa.sha256"
+          echo "Created Juyun $version ($build), bundle ID $bundle_id"
+          ls -lh "$ipa_path" "$GITHUB_WORKSPACE/Juyun-unsigned.ipa.sha256"
+
+      - name: Upload the installable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Juyun-iOS-v1.11.0-unsigned
+          path: |
+            Juyun-unsigned.ipa
+            Juyun-unsigned.ipa.sha256
+          if-no-files-found: error
+          retention-days: 14
