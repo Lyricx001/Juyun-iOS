@@ -15,8 +15,33 @@ private final class JuyunPreviewItem: NSObject, QLPreviewItem {
   }
 }
 
-public final class ExpoJuyunNativeModule: Module, QLPreviewControllerDataSource, QLPreviewControllerDelegate {
-  private var previewItem: JuyunPreviewItem?
+private final class JuyunPreviewSession: NSObject, QLPreviewControllerDataSource, QLPreviewControllerDelegate {
+  private let item: JuyunPreviewItem
+  private let didDismiss: (QLPreviewController) -> Void
+
+  init(item: JuyunPreviewItem, didDismiss: @escaping (QLPreviewController) -> Void) {
+    self.item = item
+    self.didDismiss = didDismiss
+  }
+
+  func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
+    1
+  }
+
+  func previewController(
+    _ controller: QLPreviewController,
+    previewItemAt index: Int
+  ) -> QLPreviewItem {
+    item
+  }
+
+  func previewControllerDidDismiss(_ controller: QLPreviewController) {
+    didDismiss(controller)
+  }
+}
+
+public final class ExpoJuyunNativeModule: Module {
+  private var activePreviewSession: JuyunPreviewSession?
   private weak var activePreviewController: QLPreviewController?
 
   public func definition() -> ModuleDefinition {
@@ -38,23 +63,30 @@ public final class ExpoJuyunNativeModule: Module, QLPreviewControllerDataSource,
         throw GenericException("系统预览窗口已经打开")
       }
 
-      self.previewItem = item
       let controller = QLPreviewController()
-      controller.dataSource = self
-      controller.delegate = self
+      let session = JuyunPreviewSession(item: item) { [weak self] dismissedController in
+        guard let self, self.activePreviewController === dismissedController else {
+          return
+        }
+        self.activePreviewController = nil
+        self.activePreviewSession = nil
+      }
+      controller.dataSource = session
+      controller.delegate = session
+      self.activePreviewSession = session
       self.activePreviewController = controller
       presenter.present(controller, animated: true)
     }
     .runOnQueue(.main)
 
     AsyncFunction("hashFile") { (uri: String, algorithm: String) in
-      try self.hashFile(uri: uri, start: 0, length: nil, algorithm: algorithm)
+      return try self.hashFile(uri: uri, start: 0, length: nil, algorithm: algorithm)
     }
 
     AsyncFunction("hashRange") { (uri: String, start: Double, length: Double, algorithm: String) in
       let safeStart = try self.nonNegativeInteger(start, label: "哈希起点")
       let safeLength = try self.nonNegativeInteger(length, label: "哈希长度")
-      try self.hashFile(
+      return try self.hashFile(
         uri: uri,
         start: safeStart,
         length: safeLength,
@@ -64,7 +96,7 @@ public final class ExpoJuyunNativeModule: Module, QLPreviewControllerDataSource,
 
     AsyncFunction("hashChunks") { (uri: String, chunkSize: Double, algorithm: String) in
       let safeChunkSize = try self.bufferSize(chunkSize, label: "哈希分片大小")
-      try self.hashChunks(uri: uri, chunkSize: safeChunkSize, algorithm: algorithm)
+      return try self.hashChunks(uri: uri, chunkSize: safeChunkSize, algorithm: algorithm)
     }
 
     AsyncFunction("gcidFile") { (uri: String, size: Double) in
@@ -103,26 +135,8 @@ public final class ExpoJuyunNativeModule: Module, QLPreviewControllerDataSource,
     AsyncFunction("readRangeBase64") { (uri: String, start: Double, length: Double) in
       let safeStart = try self.nonNegativeInteger(start, label: "读取起点")
       let safeLength = try self.bufferSize(length, label: "读取长度", allowZero: true)
-      try self.readRange(uri: uri, start: safeStart, length: Int64(safeLength))
+      return try self.readRange(uri: uri, start: safeStart, length: Int64(safeLength))
         .base64EncodedString()
-    }
-  }
-
-  public func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
-    previewItem == nil ? 0 : 1
-  }
-
-  public func previewController(
-    _ controller: QLPreviewController,
-    previewItemAt index: Int
-  ) -> QLPreviewItem {
-    previewItem!
-  }
-
-  public func previewControllerDidDismiss(_ controller: QLPreviewController) {
-    if activePreviewController === controller {
-      activePreviewController = nil
-      previewItem = nil
     }
   }
 
