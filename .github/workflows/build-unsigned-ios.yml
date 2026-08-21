@@ -2,6 +2,12 @@ name: 生成聚云自签 IPA
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "modules/expo-juyun-native/ios/ExpoJuyunNativeModule.swift"
+      - ".github/workflows/build-unsigned-ios.yml"
 
 permissions:
   contents: read
