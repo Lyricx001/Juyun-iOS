@@ -315,6 +315,7 @@ public final class ExpoJuyunNativeModule: Module {
     }
     let input = Data(message.utf8)
     var output = Data(count: input.count + kCCBlockSizeAES128)
+    let outputCapacity = output.count
     var outputLength: size_t = 0
     let status = output.withUnsafeMutableBytes { outputBytes in
       input.withUnsafeBytes { inputBytes in
@@ -329,7 +330,7 @@ public final class ExpoJuyunNativeModule: Module {
             inputBytes.baseAddress,
             input.count,
             outputBytes.baseAddress,
-            output.count,
+            outputCapacity,
             &outputLength
           )
         }
